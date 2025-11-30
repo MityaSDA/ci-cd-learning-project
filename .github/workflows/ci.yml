@@ -1,0 +1,28 @@
+name: Python CI   # Имя workflow, отображается на GitHub Actions
+
+on:               # Условия, при которых запускается workflow
+  push:           # Срабатывать при отправке коммитов (push)
+    branches: [ "main" ]   # Только при push в ветку main
+  pull_request:   # Срабатывать при создании Pull Request
+    branches: [ "main" ]   # Только если PR направлен в main
+
+jobs:             # Список задач, которые будут выполнены
+  build-and-test: # Имя задачи (job). Произвольное.
+    runs-on: ubuntu-latest  # Запускать job на виртуальной машине Ubuntu
+
+    steps:        # Последовательность шагов
+      - name: Checkout repository     # Шаг 1: клонируем репозиторий
+        uses: actions/checkout@v3     # Официальный action для скачивания кода
+
+      - name: Set up Python           # Шаг 2: устанавливаем Python
+        uses: actions/setup-python@v4 # Официальный action установки Python
+        with:
+          python-version: "3.10"      # Устанавливаем Python версии 3.10
+
+      - name: Install dependencies    # Шаг 3: установка зависимостей
+        run: |                        # Символ | означает многострочную команду
+          python -m pip install --upgrade pip   # Обновляем pip
+          pip install -r requirements.txt        # Ставим зависимости (pytest)
+
+      - name: Run tests               # Шаг 4: запуск тестов
+        run: pytest                   # Команда запускает pytest и тестирует проект
