@@ -1,28 +1,35 @@
-name: Python CI   # Имя workflow, отображается на GitHub Actions
+name: Python CI   # Имя workflow, отображается в GitHub Actions
 
-on:               # Условия, при которых запускается workflow
-  push:           # Срабатывать при отправке коммитов (push)
-    branches: [ "main" ]   # Только при push в ветку main
-  pull_request:   # Срабатывать при создании Pull Request
-    branches: [ "main" ]   # Только если PR направлен в main
+on:               # Условия запуска workflow
+  push:           # Запуск при push
+    branches: [ "main" ]   # Ветка main
+  pull_request:   # Запуск при создании PR
+    branches: [ "main" ]   # Только PR в main
 
-jobs:             # Список задач, которые будут выполнены
-  build-and-test: # Имя задачи (job). Произвольное.
-    runs-on: ubuntu-latest  # Запускать job на виртуальной машине Ubuntu
+jobs:             # Описание всех задач
+  build-and-test:
+    runs-on: ubuntu-latest  # Используем Linux-раннер GitHub
 
-    steps:        # Последовательность шагов
-      - name: Checkout repository     # Шаг 1: клонируем репозиторий
-        uses: actions/checkout@v3     # Официальный action для скачивания кода
+    steps:
+      - name: Checkout repository        # Шаг 1: клонируем репозиторий
+        uses: actions/checkout@v3
 
-      - name: Set up Python           # Шаг 2: устанавливаем Python
-        uses: actions/setup-python@v4 # Официальный action установки Python
+      - name: Set up Python              # Шаг 2: устанавливаем Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.10"      # Устанавливаем Python версии 3.10
+          python-version: "3.10"
 
-      - name: Install dependencies    # Шаг 3: установка зависимостей
-        run: |                        # Символ | означает многострочную команду
-          python -m pip install --upgrade pip   # Обновляем pip
-          pip install -r requirements.txt        # Ставим зависимости (pytest)
+      - name: Install dependencies       # Шаг 3: ставим зависимости
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run tests               # Шаг 4: запуск тестов
-        run: pytest                   # Команда запускает pytest и тестирует проект
+      - name: Run tests                  # Шаг 4: запускаем тесты
+        run: pytest
+
+      - name: Set up Docker Buildx       # Шаг 5: проверяем, что Docker готов
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image         # Шаг 6: сборка Docker image
+        run: |
+          docker build -t myapp:latest .     # Собираем образ по Dockerfile
