@@ -1,108 +1,158 @@
-from flask import Flask, request, jsonify
-import uuid
+"""
+app.py — Flask backend (middle-level version)
+============================================
 
+Этот модуль реализует API-сервис с несколькими эндпоинтами, структурой проекта,
+обработкой ошибок и логированием. Подходит как демонстрационный backend
+для CI/CD, Docker, Render, GitHub Actions, тестирования и интеграции с React.
+"""
+
+from flask import Flask, jsonify, request, Blueprint
+import logging
+
+
+# -----------------------------------------------------------------------------
+# Создаем Flask-приложение
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
 
-# In-memory storage (later will be replaced with PostgreSQL)
-tasks = {}
-
-# ------------------------------
-# Task Manager Endpoints
-# ------------------------------
-
-@app.post("/tasks")
-def create_task():
-    data = request.json
-    if not data or "title" not in data:
-        return jsonify({"error": "Field 'title' is required"}), 400
-
-    task_id = str(uuid.uuid4())
-    task = {
-        "id": task_id,
-        "title": data["title"],
-        "done": False
-    }
-
-    tasks[task_id] = task
-    return jsonify(task), 201
+# Включаем логирование в формате INFO (доступно в Render logs)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 
-@app.get("/tasks")
-def list_tasks():
-    return jsonify(list(tasks.values())), 200
+# -----------------------------------------------------------------------------
+# Blueprint — профессиональная структура API
+# -----------------------------------------------------------------------------
+api = Blueprint("api", __name__, url_prefix="/api")
 
 
-@app.put("/tasks/<task_id>")
-def update_task(task_id):
-    if task_id not in tasks:
-        return jsonify({"error": "Task not found"}), 404
-
-    data = request.json or {}
-    task = tasks[task_id]
-
-    task["title"] = data.get("title", task["title"])
-    task["done"] = data.get("done", task["done"])
-
-    return jsonify(task), 200
-
-
-@app.delete("/tasks/<task_id>")
-def delete_task(task_id):
-    if task_id not in tasks:
-        return jsonify({"error": "Task not found"}), 404
-
-    del tasks[task_id]
-    return jsonify({"message": "Task deleted"}), 200
+# -----------------------------------------------------------------------------
+# Вспомогательная функция безопасного преобразования параметра в число
+# -----------------------------------------------------------------------------
+def parse_number(value):
+    """
+    Преобразует строковое значение в float.
+    Если значение некорректно — возвращает None.
+    """
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
 
 
-@app.get("/stats")
-def stats():
-    total = len(tasks)
-    completed = sum(1 for t in tasks.values() if t["done"])
-    return jsonify({
-        "total": total,
-        "completed": completed,
-        "pending": total - completed
-    }), 200
-
-
-# ------------------------------
-# Math endpoints (business logic)
-# ------------------------------
-
-@app.get("/math/add")
+# -----------------------------------------------------------------------------
+# /api/add — сложение
+# -----------------------------------------------------------------------------
+@api.get("/add")
 def add():
-    a = float(request.args.get("a", 0))
-    b = float(request.args.get("b", 0))
-    return jsonify({"result": a + b})
+    """
+    Складывает два числа, полученных через параметры запроса:
+       /api/add?a=2&b=3
+    """
+    a = parse_number(request.args.get("a"))
+    b = parse_number(request.args.get("b"))
+
+    if a is None or b is None:
+        return jsonify(error="Invalid input, numbers expected"), 400
+
+    result = a + b
+    logger.info(f"ADD: {a} + {b} = {result}")
+    return jsonify(result=result)
 
 
-@app.get("/math/multiply")
+# -----------------------------------------------------------------------------
+# /api/multiply — умножение
+# -----------------------------------------------------------------------------
+@api.get("/multiply")
 def multiply():
-    a = float(request.args.get("a", 1))
-    b = float(request.args.get("b", 1))
-    return jsonify({"result": a * b})
+    """
+    Умножает два числа:
+       /api/multiply?a=4&b=5
+    """
+    a = parse_number(request.args.get("a"))
+    b = parse_number(request.args.get("b"))
+
+    if a is None or b is None:
+        return jsonify(error="Invalid input, numbers expected"), 400
+
+    result = a * b
+    logger.info(f"MULTIPLY: {a} * {b} = {result}")
+    return jsonify(result=result)
 
 
-@app.get("/math/divide")
+# -----------------------------------------------------------------------------
+# /api/divide — деление (с обработкой деления на ноль)
+# -----------------------------------------------------------------------------
+@api.get("/divide")
 def divide():
-    a = float(request.args.get("a"))
-    b = float(request.args.get("b"))
+    """
+    Делит число a на b с проверкой деления на 0:
+       /api/divide?a=10&b=2
+    """
+    a = parse_number(request.args.get("a"))
+    b = parse_number(request.args.get("b"))
+
+    if a is None or b is None:
+        return jsonify(error="Invalid input, numbers expected"), 400
 
     if b == 0:
-        return jsonify({"error": "Division by zero"}), 400
+        return jsonify(error="Division by zero is not allowed"), 400
 
-    return jsonify({"result": a / b})
+    result = a / b
+    logger.info(f"DIVIDE: {a} / {b} = {result}")
+    return jsonify(result=result)
 
 
-# ------------------------------
-# Root endpoint
-# ------------------------------
+# -----------------------------------------------------------------------------
+# Healthcheck — для Render/Kubernetes
+# -----------------------------------------------------------------------------
+@app.get("/health")
+def health_check():
+    """
+    Простой healthcheck для мониторинга.
+    Используется Render, Docker и CI, чтобы понять, что приложение живо.
+    """
+    return jsonify(status="ok")
 
+
+# -----------------------------------------------------------------------------
+# Главная страница — HTML заглушка (используется для проверки деплоя)
+# -----------------------------------------------------------------------------
 @app.get("/")
-def index():
-    return "Task Manager API is working! 🚀"
+def home():
+    """
+    Возвращает простую HTML-страницу.
+    Eё удобно проверять в браузере после деплоя.
+    """
+    return """
+    <html>
+        <head><title>MyApp API</title></head>
+        <body>
+            <h1>MyApp API Backend (Flask)</h1>
+            <p>Status: running</p>
+            <p>Try endpoints:</p>
+            <ul>
+                <li>/api/add?a=2&b=3</li>
+                <li>/api/multiply?a=4&b=5</li>
+                <li>/api/divide?a=10&b=2</li>
+                <li>/health</li>
+            </ul>
+        </body>
+    </html>
+    """
 
 
+# -----------------------------------------------------------------------------
+# Регистрируем Blueprint API
+# -----------------------------------------------------------------------------
+app.register_blueprint(api)
+
+
+# -----------------------------------------------------------------------------
+# Точка входа (если запускать локально: python app.py)
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
+    # Приложение слушает порт 10000 (Render использует EXPOSE 10000)
+    logger.info("Starting Flask development server on port 10000 ...")
     app.run(host="0.0.0.0", port=10000)
