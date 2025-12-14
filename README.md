@@ -198,5 +198,8 @@ Monitoring & alerts
 Production WSGI (Gunicorn)
 
 Security hardening
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 6ce67b15bdc44181da3323b0651b5dd2297a9127
