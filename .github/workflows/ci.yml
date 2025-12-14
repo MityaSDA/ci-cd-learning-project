@@ -1,97 +1,81 @@
-name: Python CI
+name: CI / Docker Build / Versioning
 
-# ====================================================================
-#  Настройки событий: запускаем CI при push и pull_request в main
-# ====================================================================
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
-    branches: ["main"]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest   # GitHub Actions использует Ubuntu VM
+  build-test-publish:
+    runs-on: ubuntu-latest
 
     steps:
-
-      # ==============================================================
-      # 1. Клонируем репозиторий внутрь runner
-      # ==============================================================
+      # 1. Забираем код репозитория
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # ==============================================================
-      # 2. Устанавливаем Python 3.10
-      # ==============================================================
+      # 2. Устанавливаем Python
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # ==============================================================
-      # 3. Ставим зависимости
-      # ==============================================================
+      # 3. Устанавливаем зависимости
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest
 
-      # ==============================================================
       # 4. Запускаем тесты
-      # ==============================================================
       - name: Run tests
-        run: pytest
+        run: pytest -v
 
-      # ==============================================================
-      # 5. Генерируем теги для Docker образа
-      #    SHA_TAG — первые 7 символов хэша коммита
-      #    DATE_TAG — текущая дата в формате 20250101
-      # ==============================================================
-      - name: Set image tags
-        id: vars
+      # 5. Определяем Docker-теги
+      - name: Determine version tags
+        id: version
         run: |
-          echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "DATE_TAG=$(date +'%Y%m%d')" >> $GITHUB_ENV
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="latest"
+          fi
 
-      # ==============================================================
-      # 6. Включаем Docker Buildx (улучшенный docker build)
-      # ==============================================================
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      # ==============================================================
-      # 7. Сборка Docker-образа с тремя тегами:
-      #    latest, SHA_TAG, DATE_TAG
-      # ==============================================================
-      - name: Build Docker image
-        run: |
-          docker build \
-            -t myapp:latest \
-            -t myapp:${{ env.SHA_TAG }} \
-            -t myapp:${{ env.DATE_TAG }} \
-            .
-
-      # ==============================================================
-      # 8. Логин в Docker Hub (через GitHub Secrets)
-      # ==============================================================
+      # 6. Логинимся в Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ==============================================================
-      # 9. Публикация всех трёх Docker тегов в Docker Hub
-      # ==============================================================
+      # 7. Сборка Docker-образа
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.version.outputs.version }} \
+            .
+
+          docker tag \
+            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.version.outputs.version }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.version.outputs.sha }}
+
+      # 8. Публикация Docker-образов
       - name: Push Docker image
         run: |
-          # Настраиваем теги для Docker Hub
-          docker tag myapp:latest ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-          docker tag myapp:${{ env.SHA_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.SHA_TAG }}
-          docker tag myapp:${{ env.DATE_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.DATE_TAG }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.version.outputs.version }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.version.outputs.sha }}
 
-          # Отправляем образы
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.SHA_TAG }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.DATE_TAG }}
+      # 9. Триггерим деплой в Render (после пуша образа)
+      - name: Trigger Render Deploy
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "Triggering Render deploy..."
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+        
