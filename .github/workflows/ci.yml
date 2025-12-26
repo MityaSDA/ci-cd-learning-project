@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       # =========================================================
-      # 2) Ставим Python нужной версии
+      # 2) Устанавливаем Python
       # =========================================================
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,7 +32,7 @@ jobs:
       # ---------------------------------------------------------
       # ВАЖНО:
       # - requirements.txt лежит в backend/requirements.txt
-      # - pytest там НЕТ → ставим отдельно в CI
+      # - pytest туда НЕ входит (и это нормально)
       # =========================================================
       - name: Install backend dependencies
         run: |
@@ -44,28 +44,27 @@ jobs:
       # ---------------------------------------------------------
       # ❗❗ КРИТИЧЕСКИЙ МОМЕНТ ❗❗
       #
-      # Ошибка "pytest: command not found" означает,
-      # что pytest НЕ установлен.
+      # GitHub Actions — чистая среда
+      # pytest НЕ установлен → "command not found"
       #
-      # GitHub Actions НЕ ставит pytest автоматически.
       # Поэтому:
-      #   1) ЯВНО ставим pytest
-      #   2) Только потом запускаем тесты
+      # 1) ЯВНО ставим pytest
+      # 2) Запускаем тесты из backend/tests
       # =========================================================
       - name: Run backend tests
         run: |
-          # Показываем версии (удобно для отладки)
+          # Для отладки — всегда полезно видеть версии
           python --version
           pip --version
 
-          # ЯВНО устанавливаем pytest
+          # ЯВНО ставим pytest
           pip install pytest
 
           # Запускаем тесты backend
           pytest backend/tests
 
       # =========================================================
-      # 5) Логин в Docker Hub (нужно для push образа)
+      # 5) Логин в Docker Hub
       # =========================================================
       - name: Login to Docker Hub
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -75,7 +74,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # =========================================================
-      # 6) Определяем тег образа (main -> latest, tag -> tagname)
+      # 6) Определяем тег Docker-образа
       # =========================================================
       - name: Determine image tag
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -88,11 +87,11 @@ jobs:
           fi
 
       # =========================================================
-      # 7) Сборка Docker образа BACKEND
+      # 7) Сборка Docker-образа BACKEND
       # ---------------------------------------------------------
       # ВАЖНО:
-      #   - Dockerfile лежит в backend/Dockerfile
-      #   - Контекст сборки = backend
+      # - Dockerfile: backend/Dockerfile
+      # - Контекст сборки: backend/
       # =========================================================
       - name: Build Docker image (backend)
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -103,7 +102,7 @@ jobs:
             backend
 
       # =========================================================
-      # 8) Пуш образа в Docker Hub
+      # 8) Пуш Docker-образа
       # =========================================================
       - name: Push Docker image
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -111,7 +110,7 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ steps.vars.outputs.TAG }}
 
       # =========================================================
-      # 9) Триггерим деплой в Render (после пуша образа)
+      # 9) Триггер деплоя Render
       # =========================================================
       - name: Trigger Render Deploy
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
