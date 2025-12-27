@@ -1,0 +1,76 @@
+name: Docs CI (lint, build, deploy)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+      - ".markdownlint.json"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+      - ".markdownlint.json"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Забираем репозиторий
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Node нужен для markdownlint-cli
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # 3) Устанавливаем markdownlint и проверяем docs
+      - name: Markdown lint
+        run: |
+          npm install -g markdownlint-cli
+          markdownlint "docs/**/*.md"
+
+      # 4) Python нужен для MkDocs
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 5) Ставим mkdocs + тему material
+      - name: Install MkDocs
+        run: |
+          pip install mkdocs mkdocs-material
+
+      # 6) Собираем сайт документации (создаст папку site/)
+      - name: Build docs site
+        run: |
+          mkdocs build --strict
+
+      # 7) Загружаем site/ как артефакт для Pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    # Деплоим только из main и только после успешной сборки
+    if: github.ref == 'refs/heads/main'
+    needs: lint-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

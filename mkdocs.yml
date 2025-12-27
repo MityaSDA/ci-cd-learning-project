@@ -1,0 +1,23 @@
+site_name: CI/CD Learning Project Docs
+site_description: Technical documentation for CI/CD Learning Project
+site_author: MityaSDA
+
+# ВАЖНО: папка с исходниками документации
+docs_dir: docs
+
+# Тема оформления (Material)
+theme:
+  name: material
+  language: ru
+
+# Навигация (как будет выглядеть меню сайта)
+nav:
+  - Home: README.md
+  - Architecture: architecture.md
+  - API: api.md
+  - Frontend: frontend.md
+  - CI/CD: ci_cd.md
+  - Docker: docker.md
+  - Deploy (Render): deploy_render.md
+  - Testing / Troubleshooting: troubleshooting.md
+  - Glossary: glossary.md
