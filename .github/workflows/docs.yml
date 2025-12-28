@@ -31,12 +31,13 @@ jobs:
       - name: Install documentation tools
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs mkdocs-material markdownlint-cli
+          pip install mkdocs mkdocs-material
+          npm install -g markdownlint-cli2
 
       # 4. Проверяем Markdown
       - name: Markdown lint
         run: |
-          markdownlint docs/**/*.md
+          markdownlint-cli2 "**/*.md"
 
       # 5. Сборка документации
       - name: Build MkDocs site
