@@ -1,76 +1,50 @@
-name: Docs CI (lint, build, deploy)
+name: Docs CI
 
 on:
   push:
-    branches: ["main"]
-    paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - ".github/workflows/docs.yml"
-      - ".markdownlint.json"
+    branches:
+      - main
+      - docs/**
   pull_request:
-    branches: ["main"]
-    paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - ".github/workflows/docs.yml"
-      - ".markdownlint.json"
+    branches:
+      - main
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
-  lint-and-build:
+  docs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Забираем репозиторий
-      - name: Checkout
+      # 1. Забираем репозиторий
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Node нужен для markdownlint-cli
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      # 3) Устанавливаем markdownlint и проверяем docs
-      - name: Markdown lint
-        run: |
-          npm install -g markdownlint-cli
-          markdownlint "docs/**/*.md"
-
-      # 4) Python нужен для MkDocs
-      - name: Setup Python
+      # 2. Ставим Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.10"
 
-      # 5) Ставим mkdocs + тему material
-      - name: Install MkDocs
+      # 3. Устанавливаем инструменты документации
+      - name: Install documentation tools
         run: |
-          pip install mkdocs mkdocs-material
+          python -m pip install --upgrade pip
+          pip install mkdocs mkdocs-material markdownlint-cli
 
-      # 6) Собираем сайт документации (создаст папку site/)
-      - name: Build docs site
+      # 4. Проверяем Markdown
+      - name: Markdown lint
+        run: |
+          markdownlint docs/**/*.md
+
+      # 5. Сборка документации
+      - name: Build MkDocs site
         run: |
           mkdocs build --strict
 
-      # 7) Загружаем site/ как артефакт для Pages
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    # Деплоим только из main и только после успешной сборки
-    if: github.ref == 'refs/heads/main'
-    needs: lint-and-build
-    runs-on: ubuntu-latest
-
-    steps:
+      # 6. Деплой на GitHub Pages
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdocs gh-deploy --force
