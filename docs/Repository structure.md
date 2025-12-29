@@ -1,9 +1,8 @@
+# Структура репозитория CI/CD Demo Project
 
-# Структура репозитория
+## Ниже приводится логическая структура репозитория
 
-## Ниже приводится логическая структура репозитория. 
-
-ci-cd-learning-project/
+ci-cd-demo-project/
 
 ├─ backend/                     # Backend (Flask API)
 
@@ -28,7 +27,7 @@ ci-cd-learning-project/
 
 │  ├─ package.json              # npm зависимости + скрипты
 
-│  ├─ .env                      # local (dev) конфиг (НЕ обязателен)
+│  ├─ .env                      # local (dev) конфиг ()
 
 │  └─ build/                    # production артефакт (создается npm run build)
 
@@ -38,7 +37,7 @@ ci-cd-learning-project/
 │  └─ ci.yml                    # GitHub Actions pipeline (tests + docker + deploy)
 
 │
-└─ docs/                        # (рекомендуется) документация проекта
+└─ docs/                        # документация проекта
 
 ### Важное примечание о build/
 
@@ -46,7 +45,4 @@ frontend/build/— это необходимые продукты-сборки ,
 
 npm run build
 
-
 build/ не заменяет исходники.
-
-как правило, build/ не коммитят в git. 
